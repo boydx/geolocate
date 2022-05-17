@@ -182,7 +182,7 @@
           s,
           h,
           l;
-        (d * 3.281) / 5280 >= 1000
+        d * 3.281 >= 1000
           ? (l = `${((d * 3.281) / 5280).toFixed(1)} mi`)
           : (l = `${(d * 3.281).toFixed(0)} ft`);
 
@@ -206,7 +206,7 @@
           )
           .then(function (response) {
             const w = response.words;
-            a.innerHTML = `${y},${x}</br>${w}</br>Within ${v} ft, Travel ${l}`;
+            a.innerHTML = `${y},${x}</br>${w}</br>Accuracy within ${v} ft</br>Total travel ${l}`;
             append();
           });
       }
