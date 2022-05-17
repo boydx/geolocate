@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Experiment with geolocation services</title>
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+    <style>
+      @import url("https://fonts.googleapis.com/css?family=Nunito:400,700");
+
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: white;
+      }
+
+      #travel-info {
+        position: absolute;
+        left: 6px;
+        bottom: 30px;
+        /* width: 300px; */
+        padding: 5px;
+        font-size: 0.8em;
+        background-color: white;
+        opacity: 0.8;
+        z-index: 1000;
+      }
+
+      a {
+        color: #005daa;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      /* Leaflet popup styles */
+      body, .leaflet-popup-content, .leaflet-container  {
+        font-family: "Nunito", sans-serif;
+        font-size: 1.1em;
+      }
+
+      #modal-js-example {
+        z-index: 9999;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map"></div>
+    <div id="travel-info"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://assets.what3words.com/sdk/v3/what3words.js?key=TP1F98P4"></script>
+    <script>
+      const options = {
+        center: [38.050,-84.490],
+        zoom: 16,
+        zoomControl: false,
+        zoomSnap: 0,
+      };
+
+      const map = L.map("map", options);
+      const scale_options = {
+        metric: false,
+        maxWidth: 200,
+      };
+
+      L.control.scale(scale_options).addTo(map);
+
+      const topo =
+        "https://kygisserver.ky.gov/arcgis/rest/services/WGS84WM_Services/Ky_KyTopo_Map_Series_WGS84WM/MapServer/tile/{z}/{y}/{x}";
+
+      const photo =
+        "https://kygisserver.ky.gov/arcgis/rest/services/WGS84WM_Services/Ky_Imagery_2019_6IN_WGS84WM/MapServer/tile/{z}/{y}/{x}";
+
+      const hillshade =
+        "https://kygisserver.ky.gov/arcgis/rest/services/WGS84WM_Services/Ky_MultiDirectional_Hillshade_WGS84WM/MapServer/tile/{z}/{y}/{x}";
+
+      const shade3 =
+        "https://nyc3.digitaloceanspaces.com/astoria/tiles/dsm-lex/{z}/{x}/{y}.jpg";
+
+      // Get basemap attributes from Leaflet Providers
+      const attributes = {
+        attribution:
+          '&copy; 2022 <a href="https://kygeonet.ky.gov/">KY DGI</a>',
+        maxZoom: 20.5,
+        minZoom: 6,
+        opacity: 1,
+      };
+
+      const shade3_attributes = {
+        attribution:
+          '&copy; 2022 <a href="https://outrageGIS.com">outrageGIS mapping</a>',
+        maxZoom: 18,
+        minZoom: 11,
+        opacity: 1,
+      };
+
+      var baselayers = {
+        topo: L.tileLayer(topo, attributes),
+        photo: L.tileLayer(photo, attributes),
+        shade: L.tileLayer(hillshade, attributes),
+        dsm: L.tileLayer(shade3, shade3_attributes),
+      };
+
+      const layerOptions = {
+        position: "topleft",
+        collapsed: true,
+      };
+
+      const overlays = []
+
+      L.control.layers(baselayers, overlays, layerOptions).addTo(map);
+
+      baselayers["dsm"].addTo(map);
+
+      geoLocate();
+
+      function geoLocate() {
+        const positionStyle = { radius: 20, color: "red", fillOpacity: 0.1 };
+        const locateOptions = { radius: 20, color: "red", fillOpacity: 0.5 };
+        let current = L.circle(null, positionStyle);
+        let polyline = L.polyline([], { color: "red" }).addTo(map);
+        const nowPosition = function (position) {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const latlng = L.latLng(lat, lng);
+          console.log(latlng);
+          map.removeLayer(current);
+          positionStyle.radius = position.coords.accuracy;
+          current = L.circle(latlng, positionStyle).addTo(map);
+          polyline.addLatLng(latlng);
+          const coordLength = polyline.getLatLngs();
+          if (coordLength.length == 1) {
+            map.setView(latlng, 16);
+          }
+          let length = 0;
+          for (let i = 0; i < coordLength.length - 1; i++) {
+            length += coordLength[i].distanceTo(coordLength[i + 1]);
+          }
+          travelInfo(position, "travel-info", length);
+        };
+
+        const error = function (err) {
+          console.log(err);
+          const a = document.querySelector("travel-info");
+          a.innerHTML = `No geolocation`;
+        };
+
+        if (!navigator.geolocation) {
+          console.log("Your browser doesn't support geolocation feature!");
+        } else {
+          navigator.geolocation.watchPosition(nowPosition, error, {
+            // enableHighAccuracy: true,
+            // maximumAge: 900000,
+          });
+        }
+      }
+
+      function travelInfo(p, id, d) {
+        const a = document.querySelector(`#${id}`);
+        let y = p.coords.latitude.toFixed(6),
+          x = p.coords.longitude.toFixed(6),
+          v = (p.coords.accuracy * 3.281).toFixed(1),
+          z,
+          s,
+          h,
+          l;
+        (d * 3.281) / 5280 >= 1000
+          ? (l = `${((d * 3.281) / 5280).toFixed(1)} mi`)
+          : (l = `${(d * 3.281).toFixed(0)} ft`);
+
+        const append = function () {
+          p.coords.altitude
+            ? (z = (p.coords.altitude * 3.281).toFixed(0))
+            : (z = null);
+          p.coords.speed ? (s = p.coords.speed.toFixed(1)) : (s = null);
+          p.coords.heading ? (h = p.coords.heading.toFixed(0)) : (h = null);
+          //   z ? (a.innerHTML += `${z} ft asl `) : z;
+          //   s ? (a.innerHTML += `${s} mph `) : s;
+          //   h ? (a.innerHTML += `${h}°`) : h;
+        };
+        what3words.api
+          .convertTo3wa(
+            {
+              lat: p.coords.latitude,
+              lng: p.coords.longitude,
+            },
+            "en"
+          )
+          .then(function (response) {
+            const w = response.words;
+            a.innerHTML = `${y},${x}</br>${w}</br>Within ${v} ft, Travel ${l}`;
+            append();
+          });
+      }
+    </script>
+  </body>
+</html>
