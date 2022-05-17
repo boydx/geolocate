@@ -157,9 +157,10 @@
         };
 
         const error = function (err) {
-          console.log(err);
-          const a = document.querySelector("travel-info");
-          a.innerHTML = `No geolocation`;
+          console.log(err.message);
+          const a = document.querySelector("#travel-info");
+          err.message ? a.innerHTML = err.message : 
+              a.innerHTML = `No geolocation`;
         };
 
         if (!navigator.geolocation) {
